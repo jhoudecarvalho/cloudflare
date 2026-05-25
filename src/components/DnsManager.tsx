@@ -1,14 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import AppShell from "@/components/AppShell";
 import {
   cfPatch,
   fetchAllZones,
   fetchDns,
   logBulkAudit,
 } from "@/lib/cf-client";
-import DashboardOverview from "@/components/DashboardOverview";
 import type { BulkAffected, CfDnsRecord, CfZone } from "@/lib/types";
+
+type Props = {
+  embedded?: boolean;
+};
 
 function esc(s: string) {
   return s
@@ -18,14 +23,13 @@ function esc(s: string) {
     .replace(/"/g, "&quot;");
 }
 
-export default function DnsManager() {
+export default function DnsManager({ embedded = false }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [authenticated, setAuthenticated] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
 
   const [accountId, setAccountId] = useState("");
-  const [token, setToken] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [loginBusy, setLoginBusy] = useState(false);
 
   const [zones, setZones] = useState<CfZone[]>([]);
   const [selZone, setSelZone] = useState<CfZone | null>(null);
@@ -33,7 +37,9 @@ export default function DnsManager() {
   const [dnsRec, setDnsRec] = useState<CfDnsRecord[]>([]);
   const [dnsLoading, setDnsLoading] = useState(false);
 
-  const [tab, setTab] = useState<"overview" | "dns" | "bulk">("overview");
+  const [tab, setTab] = useState<"overview" | "dns" | "bulk">(
+    embedded ? "dns" : "overview"
+  );
   const [scope, setScope] = useState<"all" | "selected">("all");
   const [includeAAAA, setIncludeAAAA] = useState(false);
   const [oldIp, setOldIp] = useState("");
@@ -57,35 +63,15 @@ export default function DnsManager() {
           const z = await fetchAllZones();
           setZones(z);
           setAuthenticated(true);
+        } else if (embedded) {
+          router.replace("/");
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (embedded) router.replace("/");
+      })
       .finally(() => setLoadingSession(false));
-  }, []);
-
-  const doLogin = async () => {
-    if (!token.trim() || !accountId.trim()) return;
-    setLoginBusy(true);
-    setLoginError("");
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ accountId: accountId.trim(), token: token.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Falha no login");
-
-      const z = await fetchAllZones();
-      setZones(z);
-      setAuthenticated(true);
-      setToken("");
-    } catch (e) {
-      setLoginError("✕ " + (e instanceof Error ? e.message : "Erro"));
-    }
-    setLoginBusy(false);
-  };
+  }, [embedded, router]);
 
   const doLogout = async () => {
     await fetch("/api/auth/logout", {
@@ -98,7 +84,7 @@ export default function DnsManager() {
     setDnsRec([]);
     setAffected([]);
     setAccountId("");
-    setToken("");
+    router.push("/");
   };
 
   const selectZone = useCallback(async (id: string) => {
@@ -116,6 +102,13 @@ export default function DnsManager() {
     }
     setDnsLoading(false);
   }, [zones]);
+
+  useEffect(() => {
+    const zoneParam = searchParams.get("zone");
+    if (zoneParam && zones.length > 0 && authenticated) {
+      selectZone(zoneParam);
+    }
+  }, [searchParams, zones, authenticated, selectZone]);
 
   const filteredZones = zones.filter((z) =>
     z.name.toLowerCase().includes(zoneSearch.toLowerCase())
@@ -227,83 +220,21 @@ export default function DnsManager() {
   }
 
   if (!authenticated) {
-    return (
-      <div className="login-screen">
-        <div className="login-box">
-          <h1>
-            Cloud<em>flare</em> Hub
-          </h1>
-          <p className="sub">
-            Dashboard completo: analytics, tráfego, domínios, DNS e alterações em massa.
-          </p>
-          <label className="flbl">Account ID</label>
-          <input
-            className="tinp"
-            value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
-            placeholder="Ex: 488d771c2ba20022ee74e4fe78bbadec"
-            autoComplete="off"
-            style={{ marginBottom: 16 }}
-          />
-          <p className="hint" style={{ marginBottom: 20 }}>
-            Encontre em: Cloudflare Dashboard → qualquer site → Overview → lado direito → <strong>Account ID</strong>.
-          </p>
-          <label className="flbl">API Token (cfat_)</label>
-          <input
-            className="tinp"
-            type="password"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && doLogin()}
-            placeholder="Cole seu Account API Token aqui..."
-            autoComplete="off"
-          />
-          <p className="hint">
-            Crie em: Cloudflare Dashboard → My Profile → API Tokens.
-            <br />
-            Permissões recomendadas: <strong>Analytics:Read</strong>, <strong>Zone:Read</strong>, <strong>DNS:Edit</strong>.
-          </p>
-          {loginError && <div className="err-box">{loginError}</div>}
-          <button className="btn-main" onClick={doLogin} disabled={loginBusy}>
-            {loginBusy ? (
-              <>
-                <span className="spinner" /> Conectando...
-              </>
-            ) : (
-              "Conectar"
-            )}
-          </button>
+    if (embedded) {
+      return (
+        <div className="login-screen">
+          <span className="spinner" />
         </div>
-      </div>
-    );
+      );
+    }
+    return null;
   }
 
   const zoneName = selZone?.name ?? "";
   const uniqueZones = new Set(affected.map((r) => r.zoneName)).size;
 
-  return (
-    <>
-      <div className="dashboard vis">
-        <div className="topbar">
-          <div className="topbar-l">
-            <h2>
-              Cloud<em>flare</em> Hub
-            </h2>
-            <span className="cnt">
-              {zones.length} domínio{zones.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          <button className="btn-sm" onClick={doLogout}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            Sair
-          </button>
-        </div>
-
-        <div className="shell">
+  const shell = (
+        <div className="shell shell-dns">
           <div className="sidebar">
             <div className="sidebar-hd">
               <h4>Domínios</h4>
@@ -352,12 +283,14 @@ export default function DnsManager() {
 
           <div className="main">
             <div className="tbar">
-              <button
-                className={`tbtn${tab === "overview" ? " on" : ""}`}
-                onClick={() => setTab("overview")}
-              >
-                Visão Geral
-              </button>
+              {!embedded && (
+                <button
+                  className={`tbtn${tab === "overview" ? " on" : ""}`}
+                  onClick={() => setTab("overview")}
+                >
+                  Visão Geral
+                </button>
+              )}
               <button
                 className={`tbtn${tab === "dns" ? " on" : ""}`}
                 onClick={() => setTab("dns")}
@@ -371,15 +304,6 @@ export default function DnsManager() {
                 Alteração em Massa
               </button>
             </div>
-
-            {tab === "overview" && (
-              <div className="pane pane-overview">
-                <DashboardOverview
-                  accountId={accountId}
-                  onSelectZone={(id) => selectZone(id)}
-                />
-              </div>
-            )}
 
             {tab === "dns" && (
               <div className="pane">
@@ -592,7 +516,17 @@ export default function DnsManager() {
             )}
           </div>
         </div>
-      </div>
+  );
+
+  return (
+    <>
+      {embedded ? (
+        <AppShell active="dns" zoneCount={zones.length} onLogout={doLogout}>
+          {shell}
+        </AppShell>
+      ) : (
+        <div className="dashboard vis">{shell}</div>
+      )}
 
       {showConfirm && (
         <div
