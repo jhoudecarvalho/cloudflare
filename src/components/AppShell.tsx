@@ -32,7 +32,7 @@ export default function AppShell({
         </div>
         <nav className="app-nav">
           <Link
-            href="/dashboard"
+            href="/hub"
             className={`nav-link${active === "dashboard" ? " on" : ""}`}
           >
             Dashboard
