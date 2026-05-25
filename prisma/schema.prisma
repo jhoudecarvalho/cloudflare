@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  accountId    String   @map("account_id") @db.VarChar(64)
+  tokenEnc     String   @map("token_enc") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  expiresAt    DateTime @map("expires_at")
+  lastUsedAt   DateTime @default(now()) @map("last_used_at")
+
+  auditLogs AuditLog[]
+
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  sessionId  String   @map("session_id")
+  action     String   @db.VarChar(32)
+  oldIp      String?  @map("old_ip") @db.VarChar(45)
+  newIp      String?  @map("new_ip") @db.VarChar(45)
+  scope      String?  @db.VarChar(16)
+  total      Int      @default(0)
+  success    Int      @default(0)
+  failed     Int      @default(0)
+  details    Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

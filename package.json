@@ -1,0 +1,31 @@
+{
+  "name": "cdwtech-cloudflare-dns",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3015",
+    "build": "prisma generate && next build",
+    "start": "next start -p 3015",
+    "start:pm2": "pm2 start ecosystem.config.cjs",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate deploy",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.9.0",
+    "next": "^15.3.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@types/react": "^19.1.4",
+    "@types/react-dom": "^19.1.5",
+    "eslint": "^9.27.0",
+    "eslint-config-next": "^15.3.3",
+    "pm2": "^5.4.3",
+    "prisma": "^6.9.0",
+    "typescript": "^5.8.3"
+  }
+}

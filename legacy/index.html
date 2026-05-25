@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloudflare DNS Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#08080c; --sf:#0f0f16; --sf2:#16161f; --sf3:#1e1e2a;
+  --bd:#252535; --bdh:#333348;
+  --tx:#e4e4f0; --txd:#8585a0; --txm:#505068;
+  --ac:#f48120; --acd:rgba(244,129,32,.12); --acg:rgba(244,129,32,.25);
+  --gn:#22c55e; --gnd:rgba(34,197,94,.12);
+  --rd:#ef4444; --rdd:rgba(239,68,68,.12);
+  --bl:#3b82f6; --bld:rgba(59,130,246,.12);
+  --yl:#eab308; --yld:rgba(234,179,8,.12);
+  --pr:#a855f7; --prd:rgba(168,85,247,.12);
+  --pk:#ec4899; --pkd:rgba(236,72,153,.12);
+  --tl:#14b8a6; --tld:rgba(20,184,166,.12);
+  --mono:'DM Mono',monospace; --sans:'Manrope',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--sans);background:var(--bg);color:var(--tx);overflow:hidden}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+.skeleton{background:linear-gradient(90deg,var(--sf2) 25%,var(--sf3) 50%,var(--sf2) 75%);background-size:200% 100%;animation:shimmer 1.8s infinite;border-radius:6px;height:18px}
+
+/* LOGIN */
+#loginScreen{height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 25% 15%,rgba(244,129,32,.04) 0%,transparent 55%),radial-gradient(ellipse at 75% 85%,rgba(59,130,246,.03) 0%,transparent 55%),var(--bg)}
+.login-box{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:52px 44px;width:100%;max-width:460px;animation:fadeUp .5s ease;position:relative;overflow:hidden}
+.login-box::before{content:'';position:absolute;top:-1px;left:20%;right:20%;height:2px;background:linear-gradient(90deg,transparent,var(--ac),transparent);border-radius:2px}
+.login-box h1{font-size:26px;font-weight:800;margin-bottom:6px;letter-spacing:-.5px}
+.login-box h1 em{font-style:normal;color:var(--ac)}
+.login-box .sub{color:var(--txd);font-size:14px;line-height:1.6;margin-bottom:32px}
+.flbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--txm);margin-bottom:8px;display:block}
+.tinp{width:100%;padding:13px 16px;border-radius:10px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-family:var(--mono);font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s}
+.tinp:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acd)}
+.tinp::placeholder{color:var(--txm)}
+.hint{font-size:11px;color:var(--txm);margin-top:10px;line-height:1.6}
+.btn-main{width:100%;padding:14px;border-radius:10px;border:none;background:var(--ac);color:#fff;font-family:var(--sans);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;margin-top:28px}
+.btn-main:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 8px 24px rgba(244,129,32,.2)}
+.btn-main:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.err-box{margin-top:16px;padding:12px 14px;border-radius:8px;background:var(--rdd);border:1px solid rgba(239,68,68,.25);color:var(--rd);font-size:13px;display:none;align-items:center;gap:8px}
+
+/* DASHBOARD */
+#dashboard{display:none;height:100vh;flex-direction:column}
+#dashboard.vis{display:flex}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--bd);background:var(--sf);flex-shrink:0}
+.topbar-l{display:flex;align-items:center;gap:14px}
+.topbar h2{font-size:17px;font-weight:800;letter-spacing:-.3px}
+.topbar h2 em{font-style:normal;color:var(--ac)}
+.cnt{font-family:var(--mono);font-size:11px;font-weight:500;padding:4px 12px;border-radius:20px;background:var(--acd);color:var(--ac)}
+.btn-sm{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;color:var(--txd);padding:7px 12px;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;transition:all .15s}
+.btn-sm:hover{color:var(--tx);border-color:var(--bdh)}
+.shell{display:flex;flex:1;min-height:0}
+
+/* Sidebar */
+.sidebar{width:300px;border-right:1px solid var(--bd);background:var(--sf);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-hd{padding:16px 14px 10px}
+.sidebar-hd h4{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--txm);margin-bottom:10px}
+.srch{display:flex;align-items:center;gap:8px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:7px 12px}
+.srch input{border:none;background:transparent;color:var(--tx);font-family:var(--sans);font-size:13px;outline:none;width:100%}
+.srch input::placeholder{color:var(--txm)}
+.srch svg{color:var(--txm);flex-shrink:0}
+.zlist{flex:1;overflow-y:auto;padding:6px 8px}
+.zlist::-webkit-scrollbar{width:4px}
+.zlist::-webkit-scrollbar-thumb{background:var(--bd);border-radius:4px}
+.zi{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:all .12s;border:1px solid transparent;margin-bottom:2px}
+.zi:hover{background:var(--sf2)}
+.zi.sel{background:var(--sf3);border-color:var(--bd)}
+.zico{width:32px;height:32px;border-radius:8px;background:var(--sf3);display:flex;align-items:center;justify-content:center;color:var(--ac);flex-shrink:0}
+.zi.sel .zico{background:var(--acd)}
+.zinf{flex:1;min-width:0}
+.zn{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zm{font-size:11px;color:var(--txm);display:flex;align-items:center;gap:5px;margin-top:2px}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dok{background:var(--gn)}.dwt{background:var(--yl)}.dof{background:var(--txm)}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.mblank{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--txm);font-size:14px}
+.mblank svg{opacity:.2}
+.tbar{display:flex;border-bottom:1px solid var(--bd);padding:0 24px;background:var(--sf);flex-shrink:0}
+.tbtn{padding:13px 20px;font-size:13px;font-weight:600;cursor:pointer;color:var(--txd);border:none;border-bottom:2px solid transparent;background:none;font-family:var(--sans);transition:all .15s;display:flex;align-items:center;gap:7px}
+.tbtn:hover{color:var(--tx)}
+.tbtn.on{color:var(--ac);border-bottom-color:var(--ac)}
+.pane{flex:1;overflow-y:auto;padding:20px 24px}
+.pane::-webkit-scrollbar{width:5px}
+.pane::-webkit-scrollbar-thumb{background:var(--bd);border-radius:4px}
+
+/* DNS Table */
+.dtbl{width:100%;border-collapse:collapse}
+.dtbl th{text-align:left;padding:10px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--txm);border-bottom:1px solid var(--bd);position:sticky;top:0;background:var(--bg);z-index:1}
+.dtbl td{padding:9px 14px;font-size:13px;border-bottom:1px solid var(--bd);vertical-align:middle}
+.dtbl tbody tr{transition:background .1s}
+.dtbl tbody tr:hover{background:var(--sf)}
+.tb{font-family:var(--mono);font-size:10px;font-weight:500;padding:3px 8px;border-radius:4px;display:inline-block;letter-spacing:.5px}
+.tA{background:var(--acd);color:var(--ac)}
+.tAAAA{background:var(--bld);color:var(--bl)}
+.tCNAME{background:var(--gnd);color:var(--gn)}
+.tMX{background:var(--prd);color:var(--pr)}
+.tTXT{background:var(--pkd);color:var(--pk)}
+.tNS{background:var(--yld);color:var(--yl)}
+.tSRV{background:var(--tld);color:var(--tl)}
+.toth{background:var(--sf3);color:var(--txd)}
+.mono{font-family:var(--mono);font-size:12px;color:var(--txd)}
+.pp{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 9px;border-radius:4px;font-weight:600}
+.pon{background:var(--acd);color:var(--ac)}
+.poff{background:var(--sf3);color:var(--txm)}
+.trunc{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Bulk */
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:24px;margin-bottom:20px;animation:fadeUp .35s ease}
+.card h3{font-size:16px;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.card>p{font-size:13px;color:var(--txd);margin-bottom:20px;line-height:1.6}
+.scrow{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.sc{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;border:1px solid var(--bd);background:var(--sf2);color:var(--txd);font-family:var(--sans)}
+.sc:hover{border-color:var(--bdh);color:var(--tx)}
+.sc.on{border-color:var(--ac);background:var(--acd);color:var(--ac)}
+.sc:disabled{opacity:.4;cursor:not-allowed}
+.chk{display:flex;align-items:center;gap:8px;margin-bottom:18px;cursor:pointer}
+.chkb{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--bd);background:var(--sf2);display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.chkb.on{background:var(--ac);border-color:var(--ac)}
+.chk span{font-size:13px;color:var(--txd)}
+.ipr{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.ipc{flex:1;min-width:180px}
+.ipc label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--txm);display:block;margin-bottom:6px}
+.ipc input{width:100%;padding:11px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-family:var(--mono);font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s}
+.ipc input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acd)}
+.bta{padding:11px 22px;border-radius:8px;border:none;background:var(--ac);color:#fff;font-family:var(--sans);font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:all .15s;white-space:nowrap}
+.bta:hover{filter:brightness(1.1)}
+.bta:disabled{opacity:.45;cursor:not-allowed}
+.bta.sec{background:var(--sf3);color:var(--tx);border:1px solid var(--bd)}
+.bta.sec:hover{border-color:var(--bdh)}
+.afl{margin-top:16px;max-height:340px;overflow-y:auto;border:1px solid var(--bd);border-radius:10px}
+.afl::-webkit-scrollbar{width:4px}
+.afl::-webkit-scrollbar-thumb{background:var(--bd);border-radius:4px}
+.afr{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--bd);font-size:12px}
+.afr:last-child{border-bottom:none}
+.afz{font-weight:700;min-width:130px;font-size:13px}
+.afn{font-family:var(--mono);color:var(--txd);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.afi{font-family:var(--mono);color:var(--ac);min-width:110px}
+.afs{display:flex;align-items:center;gap:4px;min-width:80px;justify-content:flex-end;font-weight:600}
+.sok{color:var(--gn)}.ser{color:var(--rd)}.swt{color:var(--txm)}
+.pgb{width:100%;height:4px;background:var(--sf3);border-radius:2px;margin-top:16px;overflow:hidden;display:none}
+.pgf{height:100%;background:var(--ac);border-radius:2px;transition:width .25s}
+.wbx{display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px;font-size:13px;line-height:1.6;margin-top:16px;background:var(--yld);border:1px solid rgba(234,179,8,.2);color:var(--yl)}
+.wbx svg{flex-shrink:0;margin-top:2px}
+
+@media(max-width:800px){
+  .shell{flex-direction:column}
+  .sidebar{width:100%;max-height:40vh;border-right:none;border-bottom:1px solid var(--bd)}
+  .ipr{flex-direction:column}
+  .topbar{padding:12px 16px}
+  .pane{padding:16px}
+  .login-box{margin:16px;padding:36px 28px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h1>Cloud<em>flare</em> DNS</h1>
+    <p class="sub">Gerencie seus domínios, visualize registros DNS e faça alterações de IP em massa — tudo num só lugar.</p>
+    <label class="flbl">Account ID</label>
+    <input class="tinp" id="accountInput" placeholder="Ex: 488d771c2ba20022ee74e4fe78bbadec" autocomplete="off" style="margin-bottom:16px">
+    <p class="hint" style="margin-bottom:20px">Encontre em: Cloudflare Dashboard → qualquer site → Overview → lado direito → <strong>Account ID</strong>.</p>
+    <label class="flbl">API Token (cfat_)</label>
+    <input class="tinp" type="password" id="tokenInput" placeholder="Cole seu Account API Token aqui..." autocomplete="off">
+    <p class="hint">Crie em: Cloudflare Dashboard → My Profile → API Tokens.<br>Permissões: <strong>Zone:Read</strong> e <strong>DNS:Edit</strong>.</p>
+    <div id="loginError" class="err-box"></div>
+    <button class="btn-main" id="btnLogin" onclick="doLogin()">Conectar</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-l">
+      <h2>Cloud<em>flare</em> DNS</h2>
+      <span class="cnt" id="zoneCount">0</span>
+    </div>
+    <button class="btn-sm" onclick="doLogout()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sair
+    </button>
+  </div>
+  <div class="shell">
+    <div class="sidebar">
+      <div class="sidebar-hd">
+        <h4>Domínios</h4>
+        <div class="srch">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="Buscar domínio..." id="searchInput" oninput="renderZones()">
+        </div>
+      </div>
+      <div class="zlist" id="zoneList"></div>
+    </div>
+    <div class="main">
+      <div class="tbar">
+        <button class="tbtn on" id="tabDns" onclick="switchTab('dns')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="6" rx="1"/><rect x="2" y="15" width="20" height="6" rx="1"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/></svg>
+          Registros DNS
+        </button>
+        <button class="tbtn" id="tabBulk" onclick="switchTab('bulk')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
+          Alteração em Massa
+        </button>
+      </div>
+
+      <!-- DNS Pane -->
+      <div class="pane" id="paneDns">
+        <div class="mblank" id="dnsBlank">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z"/></svg>
+          Selecione um domínio na lateral
+        </div>
+        <div id="dnsLoading" style="display:none"></div>
+        <table class="dtbl" id="dnsTable" style="display:none">
+          <thead><tr><th>Tipo</th><th>Nome</th><th>Conteúdo</th><th>Proxy</th><th>TTL</th></tr></thead>
+          <tbody id="dnsTbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Bulk Pane -->
+      <div class="pane" id="paneBulk" style="display:none">
+        <div class="card">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
+            Alteração de IP em Massa
+          </h3>
+          <p>Substitua um IP antigo por um novo em todos os registros A dos seus domínios.</p>
+          <label class="flbl" style="margin-bottom:8px">Escopo</label>
+          <div class="scrow">
+            <button class="sc on" id="scopeAll" onclick="setScope('all')">Todos os domínios</button>
+            <button class="sc" id="scopeSel" onclick="setScope('selected')" disabled>Apenas o selecionado</button>
+          </div>
+          <div class="chk" onclick="toggleAAAA()">
+            <div class="chkb" id="chkAAAA"></div>
+            <span>Incluir registros AAAA (IPv6)</span>
+          </div>
+          <div class="ipr">
+            <div class="ipc">
+              <label>IP Atual</label>
+              <input class="tinp" id="oldIpInput" placeholder="Ex: 192.168.1.1" oninput="clearPreview()">
+            </div>
+            <div class="ipc">
+              <label>Novo IP</label>
+              <input class="tinp" id="newIpInput" placeholder="Ex: 10.0.0.1">
+            </div>
+            <button class="bta sec" onclick="doPreview()" id="btnPreview">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Buscar
+            </button>
+          </div>
+        </div>
+        <div id="previewArea"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let TOKEN='', ACCOUNT_ID='', ZONES=[], SELZONE=null, DNSREC=[], SCOPE='all', AAAA=false, AFF=[], RUNNING=false;
+const API='/api';
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+async function cfGet(p){
+  const r=await fetch(API+p,{headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'}});
+  if(!r.ok){const t=await r.text();throw new Error('HTTP '+r.status+': '+t.slice(0,100))}
+  return r.json();
+}
+async function cfPatch(p,b){
+  const r=await fetch(API+p,{method:'PATCH',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify(b)});
+  return r.json();
+}
+
+async function fetchAllZones(){
+  let pg=1,all=[];
+  while(true){
+    const d=await cfGet('/zones?per_page=50&page='+pg);
+    if(!d.success) throw new Error(d.errors?.[0]?.message||'Erro ao buscar zonas');
+    all=all.concat(d.result);
+    if(pg>=d.result_info.total_pages) break;
+    pg++;
+  }
+  return all;
+}
+
+async function fetchDns(zid){
+  let pg=1,all=[];
+  while(true){
+    const d=await cfGet('/zones/'+zid+'/dns_records?per_page=100&page='+pg);
+    if(!d.success) throw new Error(d.errors?.[0]?.message||'Erro');
+    all=all.concat(d.result);
+    if(pg>=d.result_info.total_pages) break;
+    pg++;
+  }
+  return all;
+}
+
+// LOGIN
+async function doLogin(){
+  const inp=document.getElementById('tokenInput');
+  const accInp=document.getElementById('accountInput');
+  const btn=document.getElementById('btnLogin');
+  const err=document.getElementById('loginError');
+  TOKEN=inp.value.trim();
+  ACCOUNT_ID=accInp.value.trim();
+  if(!TOKEN||!ACCOUNT_ID) return;
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Conectando...';
+  err.style.display='none';
+  try{
+    const v=await cfGet('/accounts/'+ACCOUNT_ID+'/tokens/verify');
+    if(!v.success) throw new Error(v.errors?.[0]?.message||'Token inválido');
+    ZONES=await fetchAllZones();
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('dashboard').classList.add('vis');
+    document.getElementById('zoneCount').textContent=ZONES.length+' domínio'+(ZONES.length!==1?'s':'');
+    renderZones();
+  }catch(e){
+    err.textContent='✕ '+e.message;
+    err.style.display='flex';
+  }
+  btn.disabled=false; btn.innerHTML='Conectar';
+}
+function doLogout(){
+  TOKEN=''; ACCOUNT_ID=''; ZONES=[]; SELZONE=null; DNSREC=[];
+  document.getElementById('dashboard').classList.remove('vis');
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('tokenInput').value='';
+  document.getElementById('accountInput').value='';
+}
+
+// ZONES
+function renderZones(){
+  const q=(document.getElementById('searchInput').value||'').toLowerCase();
+  const f=ZONES.filter(z=>z.name.toLowerCase().includes(q));
+  document.getElementById('zoneList').innerHTML=f.map(z=>{
+    const s=SELZONE&&SELZONE.id===z.id;
+    const dc=z.status==='active'?'dok':z.status==='pending'?'dwt':'dof';
+    return '<div class="zi'+(s?' sel':'')+'" onclick="selectZone(\''+z.id+'\')"><div class="zico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z"/></svg></div><div class="zinf"><div class="zn">'+z.name+'</div><div class="zm"><span class="dot '+dc+'"></span>'+z.status+'</div></div></div>';
+  }).join('');
+}
+
+async function selectZone(id){
+  SELZONE=ZONES.find(z=>z.id===id);
+  renderZones(); switchTab('dns');
+  const ss=document.getElementById('scopeSel');
+  ss.disabled=false; ss.textContent='Apenas '+SELZONE.name;
+  document.getElementById('dnsBlank').style.display='none';
+  document.getElementById('dnsTable').style.display='none';
+  const ld=document.getElementById('dnsLoading');
+  ld.style.display='block';
+  ld.innerHTML=Array.from({length:6},(_,i)=>'<div class="skeleton" style="height:36px;margin-bottom:8px"></div>').join('');
+  try{DNSREC=await fetchDns(id);renderDns()}catch(e){DNSREC=[];renderDns()}
+  ld.style.display='none';
+  document.getElementById('dnsTable').style.display='table';
+}
+
+function renderDns(){
+  const zn=SELZONE?SELZONE.name:'';
+  document.getElementById('dnsTbody').innerHTML=DNSREC.map(r=>{
+    const tc=['A','AAAA','CNAME','MX','TXT','NS','SRV'].includes(r.type)?'t'+r.type:'toth';
+    let nm=r.name.replace('.'+zn,'');
+    if(r.name===zn) nm='<span style="color:var(--txm)">@</span>';
+    const pa=['A','AAAA','CNAME'].includes(r.type);
+    const px=pa?'<span class="pp '+(r.proxied?'pon':'poff')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="'+(r.proxied?'var(--ac)':'none')+'" stroke="'+(r.proxied?'var(--ac)':'currentColor')+'" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'+(r.proxied?'On':'Off')+'</span>':'<span class="mono" style="color:var(--txm)">—</span>';
+    const ttl=r.ttl===1?'Auto':r.ttl+'s';
+    return '<tr><td><span class="tb '+tc+'">'+r.type+'</span></td><td class="trunc" style="font-weight:600">'+nm+'</td><td class="mono trunc">'+esc(r.content)+'</td><td>'+px+'</td><td class="mono">'+ttl+'</td></tr>';
+  }).join('');
+}
+
+// TABS
+function switchTab(t){
+  document.getElementById('tabDns').classList.toggle('on',t==='dns');
+  document.getElementById('tabBulk').classList.toggle('on',t==='bulk');
+  document.getElementById('paneDns').style.display=t==='dns'?'block':'none';
+  document.getElementById('paneBulk').style.display=t==='bulk'?'block':'none';
+}
+
+// BULK
+function setScope(s){
+  SCOPE=s;
+  document.getElementById('scopeAll').classList.toggle('on',s==='all');
+  document.getElementById('scopeSel').classList.toggle('on',s==='selected');
+  clearPreview();
+}
+function toggleAAAA(){
+  AAAA=!AAAA;
+  const b=document.getElementById('chkAAAA');
+  b.classList.toggle('on',AAAA);
+  b.innerHTML=AAAA?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':'';
+  clearPreview();
+}
+function clearPreview(){AFF=[];document.getElementById('previewArea').innerHTML=''}
+
+async function doPreview(){
+  const old=document.getElementById('oldIpInput').value.trim();
+  if(!old) return;
+  const btn=document.getElementById('btnPreview');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Buscando...';
+  const types=AAAA?['A','AAAA']:['A'];
+  const zs=SCOPE==='selected'&&SELZONE?[SELZONE]:ZONES;
+  AFF=[];
+  for(const z of zs){
+    try{
+      const recs=await fetchDns(z.id);
+      recs.filter(r=>types.includes(r.type)&&r.content===old).forEach(r=>{
+        AFF.push({zoneId:z.id,zoneName:z.name,recordId:r.id,name:r.name,type:r.type,ip:r.content,status:'pending'});
+      });
+    }catch(e){}
+  }
+  btn.disabled=false;
+  btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar';
+  renderPreview();
+}
+
+function renderPreview(){
+  const area=document.getElementById('previewArea');
+  const old=document.getElementById('oldIpInput').value.trim();
+  const nw=document.getElementById('newIpInput').value.trim();
+  if(AFF.length===0){
+    area.innerHTML='<div class="wbx"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Nenhum registro com o IP <strong>'+esc(old)+'</strong> no escopo selecionado.</span></div>';
+    return;
+  }
+  // Count unique zones
+  const uzones=new Set(AFF.map(r=>r.zoneName)).size;
+
+  const rows=AFF.map(r=>{
+    const tc=['A','AAAA'].includes(r.type)?'t'+r.type:'toth';
+    return '<div class="afr"><span class="afz">'+esc(r.zoneName)+'</span><span class="afn">'+esc(r.name)+'</span><span class="tb '+tc+'">'+r.type+'</span><span class="afi">'+esc(r.ip)+'</span><span class="afs" data-rid="'+r.recordId+'"><span class="swt">pendente</span></span></div>';
+  }).join('');
+
+  area.innerHTML='<div class="card"><h3 style="color:var(--yl)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> '+AFF.length+' registro'+(AFF.length!==1?'s':'')+' em '+uzones+' domínio'+(uzones!==1?'s':'')+'</h3>'
+    +'<p>Atualizar de <code class="mono" style="color:var(--rd)">'+esc(old)+'</code> para <code class="mono" style="color:var(--gn)">'+(nw||'...')+'</code></p>'
+    +'<div class="afl" id="afList">'+rows+'</div>'
+    +'<div class="pgb" id="pgb"><div class="pgf" id="pgf" style="width:0%"></div></div>'
+    +'<div style="margin-top:20px">'
+      +'<button class="bta" id="btnApply" onclick="showConfirm()" '+(nw?'':'disabled')+'>Aplicar Alteração</button>'
+      +'<span id="sumLine" style="margin-left:12px"></span>'
+    +'</div>'
+  +'</div>';
+}
+
+function showConfirm(){
+  const old=document.getElementById('oldIpInput').value.trim();
+  const nw=document.getElementById('newIpInput').value.trim();
+  if(!nw||AFF.length===0) return;
+  const uzones=new Set(AFF.map(r=>r.zoneName)).size;
+
+  // Create modal overlay
+  const overlay=document.createElement('div');
+  overlay.id='confirmOverlay';
+  overlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9999;animation:fadeUp .25s ease';
+
+  overlay.innerHTML=''
+    +'<div style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:32px;width:100%;max-width:520px;position:relative;animation:fadeUp .3s ease">'
+      +'<h3 style="font-size:18px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--yl)">'
+        +'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+        +'Confirmar Alteração em Massa'
+      +'</h3>'
+
+      // Summary box
+      +'<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:20px">'
+        +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'
+          +'<div style="flex:1;text-align:center;padding:10px;background:var(--rdd);border-radius:8px;border:1px solid rgba(239,68,68,.2)">'
+            +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--rd);margin-bottom:4px">IP Atual</div>'
+            +'<div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--rd)">'+esc(old)+'</div>'
+          +'</div>'
+          +'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--txd)" stroke-width="2" style="flex-shrink:0"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>'
+          +'<div style="flex:1;text-align:center;padding:10px;background:var(--gnd);border-radius:8px;border:1px solid rgba(34,197,94,.2)">'
+            +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--gn);margin-bottom:4px">Novo IP</div>'
+            +'<div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--gn)">'+esc(nw)+'</div>'
+          +'</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:16px;font-size:13px;color:var(--txd)">'
+          +'<span><strong style="color:var(--tx)">'+AFF.length+'</strong> registro'+(AFF.length!==1?'s':'')+'</span>'
+          +'<span><strong style="color:var(--tx)">'+uzones+'</strong> domínio'+(uzones!==1?'s':'')+'</span>'
+        +'</div>'
+      +'</div>'
+
+      // Confirmation input
+      +'<label class="flbl" style="margin-bottom:6px">Digite <strong style="color:var(--ac)">CONFIRMAR</strong> para prosseguir</label>'
+      +'<input class="tinp" id="confirmInput" placeholder="CONFIRMAR" autocomplete="off" style="margin-bottom:20px;text-transform:uppercase">'
+
+      // Buttons
+      +'<div style="display:flex;gap:10px;justify-content:flex-end">'
+        +'<button class="bta sec" onclick="closeConfirm()" style="padding:11px 20px">Cancelar</button>'
+        +'<button class="bta" id="btnConfirmApply" onclick="execBulk()" disabled style="padding:11px 24px;background:var(--rd)">'
+          +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>'
+          +'Aplicar Alteração'
+        +'</button>'
+      +'</div>'
+    +'</div>';
+
+  document.body.appendChild(overlay);
+
+  // Enable button only when "CONFIRMAR" is typed
+  document.getElementById('confirmInput').addEventListener('input',function(){
+    document.getElementById('btnConfirmApply').disabled=this.value.trim().toUpperCase()!=='CONFIRMAR';
+  });
+  document.getElementById('confirmInput').focus();
+
+  // Close on ESC
+  overlay.addEventListener('keydown',function(e){if(e.key==='Escape')closeConfirm()});
+  // Close on click outside
+  overlay.addEventListener('click',function(e){if(e.target===overlay)closeConfirm()});
+}
+
+function closeConfirm(){
+  const o=document.getElementById('confirmOverlay');
+  if(o) o.remove();
+}
+
+function execBulk(){
+  closeConfirm();
+  doBulk();
+}
+
+async function doBulk(){
+  const nw=document.getElementById('newIpInput').value.trim();
+  if(!nw||RUNNING) return;
+  RUNNING=true;
+  const btn=document.getElementById('btnApply');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Atualizando...';
+  document.getElementById('pgb').style.display='block';
+  let ok=0,fail=0;
+  for(let i=0;i<AFF.length;i++){
+    const r=AFF[i];
+    try{
+      const res=await cfPatch('/zones/'+r.zoneId+'/dns_records/'+r.recordId,{content:nw});
+      AFF[i].status=res.success?'success':'error';
+      if(res.success) ok++; else fail++;
+    }catch(e){AFF[i].status='error';fail++}
+    document.getElementById('pgf').style.width=(((i+1)/AFF.length)*100)+'%';
+    const el=document.querySelector('[data-rid="'+r.recordId+'"]');
+    if(el) el.innerHTML=AFF[i].status==='success'?'<span class="sok">✓ ok</span>':'<span class="ser">✕ erro</span>';
+    await new Promise(r=>setTimeout(r,100));
+  }
+  RUNNING=false;
+  btn.innerHTML='✓ Concluído';
+  document.getElementById('sumLine').innerHTML='<span style="color:var(--gn)">✓ '+ok+' atualizado'+(ok!==1?'s':'')+'</span>'+(fail?'<span style="color:var(--rd);margin-left:12px">✕ '+fail+' erro'+(fail!==1?'s':'')+'</span>':'');
+  if(SELZONE){DNSREC=await fetchDns(SELZONE.id);renderDns()}
+}
+
+document.getElementById('tokenInput').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+</script>
+</body>
+</html>
